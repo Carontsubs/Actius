@@ -54,13 +54,6 @@ axs[1].set_ylabel(f'Precio de Cierre {par2}')
 axs[1].grid(True)
 axs[1].legend()
 
-# # Gráfico para la diferencia porcentual entre los precios de cierre de BTC-USD y ETH-USD
-# axs[2].plot(diferencia_porcentual.index, diferencia_porcentual, color='gray', label='Diferencia Porcentual')
-# axs[2].set_xlabel('Fecha')
-# axs[2].set_ylabel('Diferencia Porcentual (%)')
-# axs[2].grid(True)
-# axs[2].legend()
-
 # Graficar la diferencia de crecimiento porcentual
 axs[2].plot(diferencia_crecimiento.index, diferencia_crecimiento, color='black', label='%Abs')
 axs[2].plot(diferencia_crecimiento.index, diferencia_crecimiento_2, color='red', linestyle='--', label='%')
@@ -71,4 +64,5 @@ axs[2].grid(True)
 axs[2].legend()
 
 plt.tight_layout()
+
 plt.show()
