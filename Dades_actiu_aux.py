@@ -35,7 +35,7 @@ def calculate_obv(df):
     
     return obv_series
 
-def dades_diaries(df, interval_type='daily'):
+def dades_diaries(df, interval_type='diari'):
     """
     Calcula els indicadors i els llindars dinàmics per a un DataFrame.
     L'argument 'interval_type' s'utilitza per a determinar la finestra de Rolling Quantile.
@@ -264,4 +264,5 @@ def dades_diaries(df, interval_type='daily'):
     df.dropna(inplace=True) 
 
     return df
+
 
