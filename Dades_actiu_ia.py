@@ -1,8 +1,4 @@
 import yfinance as yf
-import pandas as pd
-import numpy as np
-from ta.volatility import AverageTrueRange
-from ta.momentum import RSIIndicator 
 from google import genai
 from google.genai import types
 import os # Importem el mòdul os per accedir a les variables d'entorn
@@ -17,194 +13,6 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 TOKEN_TELEGRAM = os.getenv("TOKEN_TELEGRAM")
 CHAT_ID =  os.getenv("CHAT_ID")
-
-def dades_diaries(df):
-    
-    # Si les dades no són un MultiIndex (el cas de df_raw), no fem el droplevel
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.droplevel(1)
-
-    df = df[:-1]      
-    df = df.copy() # Correcció per evitar el SettingWithCopyWarning
-    
-    # ----------------------------------------------------------------------
-    # --- CÀLCULS DEL SISTEMA 1: VOLATILITAT (ATR / V-ATR) ---
-    # ----------------------------------------------------------------------
-
-    df['Prev Close'] = df['Close'].shift(1)
-    df['Price_TR'] = abs(df['Close'] - df['Prev Close'])
-    df['Prev Volume'] = df['Volume'].shift(1)
-    df['Volume_VTR'] = abs(df['Volume'] / df['Prev Volume'])
-    df['Price_TR_day'] = abs(df['High'] / df['Low'])
-    df.dropna(subset=['Price_TR', 'Volume_VTR','Price_TR_day'], inplace=True)
-
-    # 1. EMAs de Volatilitat
-    df['TR_EMA'] = df['Price_TR'].ewm(span=21, adjust=False).mean()
-    df['VTR_EMA'] = df['Volume_VTR'].ewm(span=21, adjust=False).mean()
-    df['TR_EMA13_day'] = df['Price_TR_day'].ewm(span=13, adjust=False).mean()
-
-    # 2. Normalització i Ràtio Logarítmica
-    df['TR_Norm_EMA'] = aux.min_max_scale_log(df['TR_EMA'])
-    df['VTR_Norm_EMA'] = aux.min_max_scale_log(df['VTR_EMA'])
-    MIN_SMOOTHING_FACTOR = 0.0001
-    denominator_atr = np.maximum(df['VTR_Norm_EMA'], MIN_SMOOTHING_FACTOR) 
-    df['Log_Volatility_Ratio'] = np.log( denominator_atr / df['TR_Norm_EMA'])
-    df['Prev_LVR'] = df['Log_Volatility_Ratio'].shift(1)
-    df['m_LVR'] = df['Log_Volatility_Ratio'] - df['Prev_LVR']
-
-    # ----------------------------------------------------------------------
-    # --- CÀLCULS DEL SISTEMA 2: TENDÈNCIA / PRESSIÓ (Preu / OBV) ---
-    # ----------------------------------------------------------------------
-
-    df['OBV'] = aux.calculate_obv(df)
-    df['OBV_EMA'] = df['OBV'].ewm(span=21, adjust=False).mean()
-
-    df['Close_EMA8'] = df['Close'].ewm(span=8, adjust=False).mean()
-    df['Close_EMA13'] = df['Close'].ewm(span=13, adjust=False).mean()
-    df['Close_EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
-    df['Close_EMA233'] = df['Close'].ewm(span=233, adjust=False).mean()
-
-    # 3. Normalització i Ràtio Logarítmica
-    df['Close_EMA_Norm'] = aux.min_max_scale_log(df['Close_EMA21'])
-    df['OBV_EMA_Norm'] = aux.min_max_scale_log(df['OBV_EMA'])   
-    denominator_obv = df['OBV_EMA_Norm'].replace(0, 1e-9)
-    df['Log_Divergence_Ratio'] = np.log( denominator_obv / df['Close_EMA_Norm'])
-    df['Prev_LDR'] = df['Log_Divergence_Ratio'].shift(1)
-    df['m_LDR'] = df['Log_Divergence_Ratio'] - df['Prev_LDR']
-
-
-    df['RED'] = abs(df['Log_Divergence_Ratio']) / abs(df['Log_Volatility_Ratio'])
-    
-
-    df['Prev_RED'] = df['RED'].shift(1)
-    df['m_RED'] = df['RED'] - df['Prev_RED']
-
-
-    # Neteja final de NaNs introduïts per les EMAs
-    df.dropna(inplace=True) 
-
-    # -----------------------------------------------------------
-    # FUNCIONS DE CÀLCUL D'INDICADORS (ADX, ATR, RSI)
-    # -----------------------------------------------------------
-
-    def calculate_adx(df, period=14):
-        """Calcula l'Average Directional Index (ADX), +DI i -DI. (ADX manual)"""
-        
-        df_adx = df.copy()
-
-        # 1. True Range (TR)
-        df_adx['H-L'] = df_adx['High'] - df_adx['Low']
-        df_adx['H-PC'] = np.abs(df_adx['High'] - df_adx['Close'].shift(1))
-        df_adx['L-PC'] = np.abs(df_adx['Low'] - df_adx['Close'].shift(1))
-        df_adx['TR'] = df_adx[['H-L', 'H-PC', 'L-PC']].max(axis=1)
-
-        # 2. Directional Movement (+DM i -DM)
-        df_adx['+DM'] = np.where(
-            (df_adx['High'] - df_adx['High'].shift(1) > 0) & 
-            (df_adx['High'] - df_adx['High'].shift(1) > df_adx['Low'].shift(1) - df_adx['Low']), 
-            df_adx['High'] - df_adx['High'].shift(1), 
-            0
-        )
-        df_adx['-DM'] = np.where(
-            (df_adx['Low'].shift(1) - df_adx['Low'] > 0) & 
-            (df_adx['Low'].shift(1) - df_adx['Low'] > df_adx['High'] - df_adx['High'].shift(1)), 
-            df_adx['Low'].shift(1) - df_adx['Low'], 
-            0
-        )
-
-        # 3. ATR, +DI i -DI (Wilder's Smoothing)
-        def wilder_smooth(series, period):
-            return series.ewm(alpha=1/period, adjust=False).mean()
-        
-        df_adx['ATR_ADX'] = wilder_smooth(df_adx['TR'], period)
-        df_adx['+DI'] = 100 * (wilder_smooth(df_adx['+DM'], period) / df_adx['ATR_ADX'])
-        df_adx['-DI'] = 100 * (wilder_smooth(df_adx['-DM'], period) / df_adx['ATR_ADX'])
-
-        # 4. Directional Index (DX)
-        # Gestionar la divisió per zero si +DI + -DI és 0
-        sum_di = df_adx['+DI'] + df_adx['-DI']
-        df_adx['DX'] = np.where(sum_di > 0, 100 * (np.abs(df_adx['+DI'] - df_adx['-DI']) / sum_di), 0)
-
-        # 5. Average Directional Index (ADX)
-        df_adx['ADX'] = wilder_smooth(df_adx['DX'], period)
-
-        return df_adx[['+DI', '-DI', 'ADX']]
-
-
-    df['ATR'] = AverageTrueRange(high=df['High'], low=df['Low'], close=df['Close'], window=21).average_true_range()
-    df['ATR_Q5'] = df['ATR'].rolling(window=55).quantile(0.05)
-    df['ATR_Q90'] = df['ATR'].rolling(window=55).quantile(0.90)
-    
-    df['RSI'] = RSIIndicator(close=df['Close'], window=21).rsi()
-
-    # Càlculs de Volum i Ràtios (REPV)
-    df['EMA13_Close'] = df['Close'].ewm(span=13, adjust=False).mean()
-    df['SMA_55_Volume'] = df['Volume'].rolling(window=55).mean()
-    df['SMA_13_Volume'] = df['Volume'].rolling(window=21).mean()
-    df['Price_TR_ema8'] = df['Price_TR'].ewm(span=5, adjust=False).mean()
-    df['Volume_ema8'] = df['Volume'].ewm(span=5, adjust=False).mean()
-
-    # Gestionar la divisió per zero
-    denominator_sma = df['SMA_13_Volume'].replace(0, 1e-9)
-    df['REPV'] =  denominator_sma / df['ATR'] 
-    denominator_vol_ema = df['Volume_ema8'].replace(0, 1e-9)
-    df['REPV_a'] = denominator_vol_ema / df['Price_TR_ema8']
-    denominator_repv = df['REPV'].replace(0, 1e-9)
-    df['REPV_R'] = df['REPV_a'] / denominator_repv
-
-    df['IPE'] = df['Log_Divergence_Ratio'] / df['REPV_R']
-
-    # OSCIL·LADOR ESTOCÀSTIC (Preu)
-    period = 21
-    smooth_k = 1
-    smooth_d = 3
-
-    df['Low_8'] = df['Low'].rolling(window=period).min()
-    df['High_8'] = df['High'].rolling(window=period).max()
-    denominator_stoch = (df['High_8'] - df['Low_8']).replace(0, 1e-9)
-    df['Fast_%K'] = 100 * ((df['Close'] - df['Low_8']) / denominator_stoch)
-    df['Slow_%K'] = df['Fast_%K'].rolling(window=smooth_k).mean()
-    df['Slow_%D'] = df['Slow_%K'].rolling(window=smooth_d).mean()
-
-    # OSCIL·LADOR RED - ESTOCÀSTIC
-    period_vtr = 21 
-    smooth_k_vtr = 3
-    smooth_d_vtr = 3
-
-    df['Low_VTR'] = df['VTR_EMA'].rolling(window=period_vtr).min()
-    df['High_VTR'] = df['VTR_EMA'].rolling(window=period_vtr).max()
-    
-    # Gestionar la divisió per zero si High_RED - Low_RED és 0
-    red_range = df['High_VTR'] - df['Low_VTR']
-    df['Fast_%VTR-K'] = np.where(red_range > 0, 
-                                 100 * ((df['VTR_EMA'] - df['Low_VTR']) / red_range), 
-                                 50) # Valor per defecte al 50 si no hi ha rang
-
-    df['Slow_%VTR-K'] = df['Fast_%VTR-K'].rolling(window=smooth_k_vtr).mean()
-    df['Slow_%VTR-D'] = df['Slow_%VTR-K'].rolling(window=smooth_d_vtr).mean()
-    
-    # OSCIL·LADOR ATR - ESTOCÀSTIC
-    period_red = 21 
-    smooth_k_red = 3    
-    smooth_d_red = 3
-
-    df['Low_ATR'] = df['ATR'].rolling(window=period_red).min()
-    df['High_ATR'] = df['ATR'].rolling(window=period_red).max()
-    
-    # Gestionar la divisió per zero si High_RED - Low_RED és 0
-    red_range = df['High_ATR'] - df['Low_ATR']
-    df['Fast_%ATR-K'] = np.where(red_range > 0, 
-                                 100 * ((df['ATR'] - df['Low_ATR']) / red_range), 
-                                 50) # Valor per defecte al 50 si no hi ha rang
-
-    df['Slow_%ATR-K'] = df['Fast_%ATR-K'].rolling(window=smooth_k_red).mean()
-    df['Slow_%ATR-D'] = df['Slow_%ATR-K'].rolling(window=smooth_d_red).mean()
-
-
-    # Afegir l'ADX calculat al DataFrame principal
-    df = df.join(calculate_adx(df), how='left')
-
-    return df
 
 def envia_missatge(text):
     url = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}/sendMessage"
@@ -227,7 +35,6 @@ df_raw_1 = aux.dades_diaries(df_raw_1, interval_type='1h')
 df = df.tail(90)
 df_raw = df_raw.tail(72)
 df_raw_1 = df_raw_1.tail(72)
-
 
 # Inicialitza el client passant la clau directament.
 client = genai.Client(api_key=GEMINI_API_KEY)
@@ -335,4 +142,5 @@ try:
 
 except Exception as e:
   print(f"❌ ERROR. {e}")
+
 
