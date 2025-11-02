@@ -1,6 +1,4 @@
-import yfinance as yf
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
 from ta.volatility import AverageTrueRange
 from ta.momentum import RSIIndicator 
@@ -266,3 +264,4 @@ def dades_diaries(df, interval_type='daily'):
     df.dropna(inplace=True) 
 
     return df
+
