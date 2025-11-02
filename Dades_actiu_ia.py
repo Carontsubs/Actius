@@ -6,12 +6,9 @@ from ta.momentum import RSIIndicator
 from google import genai
 from google.genai import types
 import os # Importem el mòdul os per accedir a les variables d'entorn
-from dotenv import load_dotenv # 👈 Importem la funció per carregar .env
+from dotenv import load_dotenv # Importem la funció per carregar .env
 import requests
-
-# Configuració de Pandas
-pd.set_option('display.max_rows', None)
-pd.set_option('display.max_columns', None)
+import Dades_actiu_aux as aux
 
 # Carrega les variables d'entorn del fitxer .env
 load_dotenv() 
@@ -20,34 +17,6 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 TOKEN_TELEGRAM = os.getenv("TOKEN_TELEGRAM")
 CHAT_ID =  os.getenv("CHAT_ID")
-
-# ----------------------------------------------------------------------
-# --- FUNCIONS DE CÀLCUL ---
-# ----------------------------------------------------------------------
-
-def min_max_scale_log(series):
-    """Normalitza una sèrie de dades al rang 1-100 per al càlcul logarítmic.
-    AVÍS: Aquesta normalització depèn de la finestra temporal de les dades (repintat).
-    """
-    min_val, max_val = series.min().item(), series.max().item()
-    if max_val == min_val: return pd.Series(50.0, index=series.index)
-    return 1 + 99 * (series - min_val) / (max_val - min_val) 
-
-def calculate_obv(df):
-    """Calcula l'indicador On-Balance Volume (OBV) de forma vectoritzada."""
-    
-    # Utilitzem np.sign() per determinar la direcció del canvi de preu (-1, 0, 1)
-    price_change = df['Close'].diff().fillna(0)
-    direction = np.sign(price_change)
-    
-    # L'OBV és la suma acumulada de (Volum * Direcció)
-    obv_series = (df['Volume'] * direction).cumsum()
-    
-    # El primer valor d'OBV és sempre 0, així que omplim el NaN creat per .diff()
-    # Amb l'OBV del primer tancament (que és 0)
-    obv_series = obv_series.fillna(0)
-    
-    return obv_series
 
 def dades_diaries(df):
     
@@ -75,8 +44,8 @@ def dades_diaries(df):
     df['TR_EMA13_day'] = df['Price_TR_day'].ewm(span=13, adjust=False).mean()
 
     # 2. Normalització i Ràtio Logarítmica
-    df['TR_Norm_EMA'] = min_max_scale_log(df['TR_EMA'])
-    df['VTR_Norm_EMA'] = min_max_scale_log(df['VTR_EMA'])
+    df['TR_Norm_EMA'] = aux.min_max_scale_log(df['TR_EMA'])
+    df['VTR_Norm_EMA'] = aux.min_max_scale_log(df['VTR_EMA'])
     MIN_SMOOTHING_FACTOR = 0.0001
     denominator_atr = np.maximum(df['VTR_Norm_EMA'], MIN_SMOOTHING_FACTOR) 
     df['Log_Volatility_Ratio'] = np.log( denominator_atr / df['TR_Norm_EMA'])
@@ -87,7 +56,7 @@ def dades_diaries(df):
     # --- CÀLCULS DEL SISTEMA 2: TENDÈNCIA / PRESSIÓ (Preu / OBV) ---
     # ----------------------------------------------------------------------
 
-    df['OBV'] = calculate_obv(df)
+    df['OBV'] = aux.calculate_obv(df)
     df['OBV_EMA'] = df['OBV'].ewm(span=21, adjust=False).mean()
 
     df['Close_EMA8'] = df['Close'].ewm(span=8, adjust=False).mean()
@@ -96,8 +65,8 @@ def dades_diaries(df):
     df['Close_EMA233'] = df['Close'].ewm(span=233, adjust=False).mean()
 
     # 3. Normalització i Ràtio Logarítmica
-    df['Close_EMA_Norm'] = min_max_scale_log(df['Close_EMA21'])
-    df['OBV_EMA_Norm'] = min_max_scale_log(df['OBV_EMA'])   
+    df['Close_EMA_Norm'] = aux.min_max_scale_log(df['Close_EMA21'])
+    df['OBV_EMA_Norm'] = aux.min_max_scale_log(df['OBV_EMA'])   
     denominator_obv = df['OBV_EMA_Norm'].replace(0, 1e-9)
     df['Log_Divergence_Ratio'] = np.log( denominator_obv / df['Close_EMA_Norm'])
     df['Prev_LDR'] = df['Log_Divergence_Ratio'].shift(1)
@@ -234,11 +203,6 @@ def dades_diaries(df):
 
     # Afegir l'ADX calculat al DataFrame principal
     df = df.join(calculate_adx(df), how='left')
-    
-    # # Neteja final de NaNs
-    # df.dropna(inplace=True) 
-    # RED_f = df['RED'].copy()
-    # RED_f[RED_f > 10] = 10
 
     return df
 
@@ -246,7 +210,7 @@ def envia_missatge(text):
     url = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}/sendMessage"
     params = {"chat_id": CHAT_ID, "text": text}
     resposta = requests.get(url, params=params)
-    print(f"Estat de l'enviament a Telegram: {resposta.json()}")
+    # print(f"Estat de l'enviament a Telegram: {resposta.json()}")
 
 # 1. Extreure les dades de Yahoo Finance
 ticker = "BTC-USD"
@@ -256,67 +220,9 @@ df = yf.download(ticker, period="2y", interval='1d')
 df_raw_1 = yf.download(ticker, period="3mo", interval='1h')
 df_raw = yf.download(ticker, period="3mo", interval='4h')
 
-df = dades_diaries(df)
-df_raw = dades_diaries(df_raw)
-df_raw_1 = dades_diaries(df_raw_1)
-
-# ----------------------------------------------------------------------
-# --- CÀLCUL DE LLINDARS DINÀMICS (ROLLING QUANTILE) ---
-# ----------------------------------------------------------------------
-# def llindars(df_raw,interval):
-
-#     if interval is interval1:
-#         WINDOW = 250
-#     elif interval is interval2:
-#         WINDOW = 288
-#     else:
-#         WINDOW = 72
-    # 4h (df_raw) - Finestra de 72 períodes (aprox. 12 dies, 6 candeles/dia * 12 dies)
-WINDOW_4H = 72
-window = min(WINDOW_4H, len(df_raw))
-
-df_raw['LDR_Q10'] = df_raw['Log_Divergence_Ratio'].rolling(window=window).quantile(0.10)
-df_raw['LDR_Q90'] = df_raw['Log_Divergence_Ratio'].rolling(window=window).quantile(0.90)
-df_raw['LVR_Q10'] = df_raw['Log_Volatility_Ratio'].rolling(window=window).quantile(0.10)
-df_raw['LVR_Q90'] = df_raw['Log_Volatility_Ratio'].rolling(window=window).quantile(0.90)
-df_raw['REPV_R_Q10'] = df_raw['REPV_R'].rolling(window=window).quantile(0.10)
-df_raw['REPV_R_Q90'] = df_raw['REPV_R'].rolling(window=window).quantile(0.90)
-df_raw['IPE_Q10'] = df_raw['IPE'].rolling(window=window).quantile(0.10)
-df_raw['IPE_Q90'] = df_raw['IPE'].rolling(window=window).quantile(0.90)
-
-# Diari (df) - Finestra de 250 dies (aprox. 1 any de trading)
-WINDOW_DAILY = 250
-# Assegurem que la finestra no sigui més gran que la mida de les dades
-window_daily = min(WINDOW_DAILY, len(df))
-
-df['LDR_Q10'] = df['Log_Divergence_Ratio'].rolling(window=window_daily).quantile(0.10)
-df['LDR_Q90'] = df['Log_Divergence_Ratio'].rolling(window=window_daily).quantile(0.90)
-df['LVR_Q10'] = df['Log_Volatility_Ratio'].rolling(window=window_daily).quantile(0.10)
-df['LVR_Q90'] = df['Log_Volatility_Ratio'].rolling(window=window_daily).quantile(0.90)
-df['REPV_R_Q10'] = df['REPV_R'].rolling(window=window_daily).quantile(0.10)
-df['REPV_R_Q90'] = df['REPV_R'].rolling(window=window_daily).quantile(0.90)
-df['IPE_Q10'] = df['IPE'].rolling(window=window_daily).quantile(0.10)
-df['IPE_Q90'] = df['IPE'].rolling(window=window_daily).quantile(0.90)
-
-
-# 1h (df_raw) - Finestra de 288 períodes (aprox. 12 dies, 24 candeles/dia * 12 dies)
-WINDOW_1H = 288
-window_1h = min(WINDOW_1H, len(df_raw_1))
-
-# Càlcul dels percentils utilitzant la nova finestra de 288
-df_raw_1['LDR_Q10'] = df_raw_1['Log_Divergence_Ratio'].rolling(window=window_1h).quantile(0.10)
-df_raw_1['LDR_Q90'] = df_raw_1['Log_Divergence_Ratio'].rolling(window=window_1h).quantile(0.90)
-df_raw_1['LVR_Q10'] = df_raw_1['Log_Volatility_Ratio'].rolling(window=window_1h).quantile(0.10)
-df_raw_1['LVR_Q90'] = df_raw_1['Log_Volatility_Ratio'].rolling(window=window_1h).quantile(0.90)
-df_raw_1['REPV_R_Q10'] = df_raw_1['REPV_R'].rolling(window=window_1h).quantile(0.10)
-df_raw_1['REPV_R_Q90'] = df_raw_1['REPV_R'].rolling(window=window_1h).quantile(0.90)
-df_raw_1['IPE_Q10'] = df_raw_1['IPE'].rolling(window=window_1h).quantile(0.10)
-df_raw_1['IPE_Q90'] = df_raw_1['IPE'].rolling(window=window_1h).quantile(0.90)
-
-# Neteja de NaNs introduïts pels Rolling Windows
-df.dropna(subset=['LDR_Q10', 'LDR_Q90'], inplace=True)
-df_raw.dropna(subset=['LVR_Q10', 'LVR_Q90', 'REPV_R_Q10', 'REPV_R_Q90'], inplace=True)
-df_raw_1.dropna(subset=['LVR_Q10', 'LVR_Q90', 'REPV_R_Q10', 'REPV_R_Q90'], inplace=True)
+df = aux.dades_diaries(df,interval_type='diari')
+df_raw = aux.dades_diaries(df_raw,interval_type='4h')
+df_raw_1 = aux.dades_diaries(df_raw_1, interval_type='1h')
 
 df = df.tail(90)
 df_raw = df_raw.tail(72)
@@ -325,11 +231,6 @@ df_raw_1 = df_raw_1.tail(72)
 
 # Inicialitza el client passant la clau directament.
 client = genai.Client(api_key=GEMINI_API_KEY)
-
-# ----------------------------------------------------------------------
-# Dades Astronòmiques (Aquestes dades es mantenen fixes per a tots els signes)
-# ----------------------------------------------------------------------
-
 print(f"Generant informe...")  # --- 3. CONSTRUCCIÓ DEL PROMPT FINAL ---
 
 prompt = f"""
