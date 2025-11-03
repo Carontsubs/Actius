@@ -1,0 +1,8 @@
+# Variables d'entorn (MOLT IMPORTANT)
+.env
+
+# Entorns Virtuals i Caché de Python
+venv/
+__pycache__/
+*.pyc
+*.log
