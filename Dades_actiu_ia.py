@@ -12,7 +12,7 @@ load_dotenv()
 # Obtenim la clau d'API. Si no la troba, generarà un error.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 TOKEN_TELEGRAM = os.getenv("TOKEN_TELEGRAM")
-CHAT_ID =  os.getenv("CHAT_ID")
+CHAT_ID =  os.getenv("TELEGRAM_CHAT_ID")
 
 def envia_missatge(text):
     url = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}/sendMessage"
@@ -103,7 +103,7 @@ Situacio de les estocastiques.
 Conclusió Operativa: Les dades suggereixen una continuació, una possible reversió o una fase de consolidació/incertesa?
 
 
-El informe ha de ser de **no mes de 400 paraules** , estructurat en blocs i no utilitzis la negreta.
+El informe ha de ser de **no mes de 250 paraules** , estructurat en blocs i no utilitzis la negreta.
 
 [DADES A CONTINUACIO]
 
