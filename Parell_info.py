@@ -103,17 +103,7 @@ axes[2].set_ylabel('MACD')
 axes[2].grid(True)
 axes[2].legend()
 
-
-# # Graficar la diferencia de crecimiento porcentual
-# axes[3].plot(diferencia_crecimiento.index, diferencia_crecimiento, color='black', label='%Abs')
-# axes[3].plot(diferencia_crecimiento.index, diferencia_crecimiento_2, color='red', linestyle='--', label='%Rel')
-# # axes[3].set_xlabel('Fecha')
-# axes[3].set_ylabel('Diferencia del %')
-# axes[3].set_title(f'Variacio diaria %BTC-USD - %{parell}')
-# axes[3].grid(True)
-# axes[3].legend()
-
-# # Graficar el ADI+ y ADI-
+# Graficar el ADI+ y ADI-
 # Graficar el ADX
 axes[3].plot(crypto_data.index, crypto_data['ADX'], color='red', label='ADX')
 axes[3].plot(crypto_data.index, crypto_data['DIplus'], color='green', label='ADI+')
@@ -121,7 +111,6 @@ axes[3].plot(crypto_data.index, crypto_data['DIminus'], color='blue', label='ADI
 axes[3].set_ylabel('ADX i DI')
 axes[3].grid(True)
 axes[3].legend()
-# axes[3].set_ylabel('DI')
 
 # Graficar el MFI
 axes[4].plot(crypto_data.index, crypto_data['MFI'], color='green')

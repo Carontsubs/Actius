@@ -7,7 +7,7 @@ cryptos = ["BTC-USD", "ETH-USD", "BNB-USD", "XRP-USD", "ADA-USD",
            "SOL-USD", "DOGE-USD", "DOT-USD", "XRP-USD", "LINK-USD"]
 
 # Cripto a comparar amb l'índex
-par = "DOT-USD"   # 👉 pots canviar-ho per "BNB-USD", "SOL-USD", etc.
+par = "DOT-USD"   # pots canviar-ho per "BNB-USD", "SOL-USD", etc.
 
 # Descarregar dades (últim mes)
 data = yf.download(cryptos, period="1mo").dropna()
@@ -48,7 +48,6 @@ fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12,14), sharex=True)
 ax1.plot(crypto10, label="Crypto10 Index", color="black")
 ax1.plot(index_peaks.index, index_peaks.values, "g^", label="Màxim local")
 ax1.plot(index_troughs.index, index_troughs.values, "rv", label="Mínim local")
-# ax1.plot(crypto10_ma, label=f"MA {periode_ma} dies", color="red", linestyle="--")
 ax1.set_title("Crypto10 Index amb punts d'inflexió")
 ax1.legend()
 
@@ -56,9 +55,7 @@ ax1.legend()
 ax2.plot(par_close, label=f"{par} Close", color="blue")
 ax2.plot(par_peaks.index, par_peaks.values, "g^", label="Màxim local")
 ax2.plot(par_troughs.index, par_troughs.values, "rv", label="Mínim local")
-# ax2.plot(par_ma, label=f"MA {periode_ma} dies", color="red", linestyle="--")
 ax2.set_title(f"{par} amb punts d'inflexió")
-# ax2.legend()
 
 # Gràfic 3: Ràtio Index/Cripto
 ax3.plot(ratio, label=f"Crypto10/{par} Ratio", color="purple")
