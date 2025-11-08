@@ -103,7 +103,7 @@ Situacio de les estocastiques.
 Conclusió Operativa: Les dades suggereixen una continuació, una possible reversió o una fase de consolidació/incertesa?
 
 
-El informe ha de ser de **no mes de 400 paraules** , estructurat en blocs i no utilitzis la negreta.
+El informe ha de ser de **no mes de 250 paraules** , estructurat en blocs i no utilitzis la negreta.
 
 [DADES A CONTINUACIO]
 
