@@ -52,7 +52,6 @@ ax1.plot(crypto10_norm, label="Crypto10 Index", color="black")
 ax1.plot(index_peaks.index, index_peaks.values, "g^")
 ax1.plot(index_troughs.index, index_troughs.values, "rv")
 ax1.plot(crypto10_ma, label=f"MA {periode_ma} dies", color="red", linestyle="--")
-# ax1.set_title("Crypto10 Index amb punts d'inflexió")
 ax1.legend()
 
 # Gràfic 2: Actiu comparat amb punts d'inflexió
@@ -60,13 +59,11 @@ ax2.plot(par_close_norm, label=f"{par} Close", color="blue")
 ax2.plot(par_peaks.index, par_peaks.values, "g^")
 ax2.plot(par_troughs.index, par_troughs.values, "rv")
 ax2.plot(par_ma, label=f"MA {periode_ma} dies", color="red", linestyle="--")
-# ax2.set_title(f"{par} amb punts d'inflexió")
 ax2.legend()
 
 # Gràfic 3: Ràtio Index/Actiu
 ax3.plot(ratio.index, ratio.values, label=f"Crypto10/{par} Ratio", color="purple")
 ax3.axhline(ratio.mean(), color="black", linestyle="--", label="Mitjana")
-# ax3.set_title(f"Força relativa Crypto10 vs {par}")
 ax3.legend()
 
 plt.tight_layout()

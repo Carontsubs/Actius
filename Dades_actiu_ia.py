@@ -12,7 +12,7 @@ load_dotenv()
 # Obtenim la clau d'API. Si no la troba, generarà un error.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 TOKEN_TELEGRAM = os.getenv("TOKEN_TELEGRAM")
-CHAT_ID =  os.getenv("CHAT_ID")
+CHAT_ID =  os.getenv("TELEGRAM_CHAT_ID")
 
 def envia_missatge(text):
     url = f"https://api.telegram.org/bot{TOKEN_TELEGRAM}/sendMessage"
