@@ -7,7 +7,7 @@ periode = "1y"
 interval = "1d"
 caixa = 0.02
 
-symbol = 'DOGE-USD'
+symbol = 'BTC-USD'
 
 data = yf.Ticker(symbol)
 ts = data.history(period=periode, interval=interval)

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 cryptos = ["BTC-USD", "ETH-USD", "BNB-USD", "XRP-USD", "ADA-USD", 
            "SOL-USD", "DOGE-USD", "DOT-USD", "TRX-USD", "LINK-USD"]
 
-par = "DOT-USD"  # cripto de comparació
+par = "TRX-USD"  # cripto de comparació
 
 # --- Descarregar dades ---
 data = yf.download(cryptos, period="1y")["Close"].dropna()
