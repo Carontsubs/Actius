@@ -21,7 +21,7 @@ def envia_missatge(text):
     # print(f"Estat de l'enviament a Telegram: {resposta.json()}")
 
 # 1. Extreure les dades de Yahoo Finance
-ticker = "BTC-USD"
+ticker = "^IBEX"
 
 # Descarregar les dades històriques
 df = yf.download(ticker, period="2y", interval='1d')
